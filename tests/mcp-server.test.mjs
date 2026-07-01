@@ -2170,6 +2170,11 @@ describe("MCP get_chain_signers", () => {
 
 describe("MCP get_chain_fees", () => {
   test("returns daily series and top payers from D1", async () => {
+    // The median query only runs for days the daily aggregate already proved
+    // are within the sample cap, so the mocked day must be one the real
+    // window actually covers — use today (UTC), which any window ending at
+    // the real "now" includes.
+    const today = new Date().toISOString().slice(0, 10);
     const env = {
       METAGRAPH_HEALTH_DB: {
         prepare(sql) {
@@ -2181,7 +2186,7 @@ describe("MCP get_chain_fees", () => {
                     return {
                       results: [
                         {
-                          day: "2026-06-01",
+                          day: today,
                           median_fee_tao: 0.4,
                           median_tip_tao: 0.05,
                         },
@@ -2192,7 +2197,7 @@ describe("MCP get_chain_fees", () => {
                     return {
                       results: [
                         {
-                          day: "2026-06-01",
+                          day: today,
                           extrinsic_count: 20,
                           total_fee_tao: 8,
                           total_tip_tao: 2,
@@ -2235,17 +2240,33 @@ describe("MCP get_chain_fees", () => {
   });
 
   test("scopes every chain-fees query by call_module", async () => {
-    const modules = [];
+    // The median query only runs for days the daily aggregate already proved
+    // are within the sample cap, so the mocked daily response must report a
+    // real day (today, UTC) rather than an empty result set.
+    const today = new Date().toISOString().slice(0, 10);
+    const calls = [];
     const env = {
       METAGRAPH_HEALTH_DB: {
         prepare(sql) {
           return {
             bind(...params) {
               if (sql.includes("call_module = ?")) {
-                modules.push(params[1]);
+                calls.push(params);
               }
               return {
                 async all() {
+                  if (/GROUP BY day/.test(sql)) {
+                    return {
+                      results: [
+                        {
+                          day: today,
+                          extrinsic_count: 10,
+                          total_fee_tao: 1,
+                          total_tip_tao: 1,
+                        },
+                      ],
+                    };
+                  }
                   return { results: [] };
                 },
               };
@@ -2259,7 +2280,15 @@ describe("MCP get_chain_fees", () => {
       { window: "30d", call_module: "Balances", limit: 10 },
       { env },
     );
-    assert.deepEqual(modules, ["Balances", "Balances", "Balances"]);
+    assert.equal(calls.length, 3);
+    assert.equal(calls[0][1], "Balances"); // daily series
+    assert.equal(calls[1][1], "Balances"); // top fee payers
+    // Median query: the call_module filter is bound ONCE (numbered ?1) and
+    // reused across every UNION ALL day block, followed by a
+    // day-start/day-end pair per safe UTC day.
+    const medianParams = calls[2];
+    assert.equal(medianParams[0], "Balances");
+    assert.equal((medianParams.length - 1) % 2, 0);
   });
 
   test("rejects an invalid window", async () => {
