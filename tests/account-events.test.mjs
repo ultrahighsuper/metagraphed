@@ -154,6 +154,19 @@ test("formatAccountEvent maps a D1 row to an API event (ISO time)", () => {
   assert.equal(out.extrinsic_index, 2);
 });
 
+test("formatAccountEvent drops an out-of-range observed_at to null (no RangeError)", () => {
+  // 8.64e15 ms is the max valid Date; a larger epoch-ms cell is finite but
+  // new Date(n).toISOString() throws RangeError. One bad cell must null that
+  // field, not throw and break the whole events feed. Mirrors #2762.
+  const out = formatAccountEvent({
+    block_number: 1,
+    event_index: 0,
+    event_kind: "Transfer",
+    observed_at: 8640000000000001,
+  });
+  assert.equal(out.observed_at, null);
+});
+
 test("formatAccountEvent is null-safe on junk + sparse rows", () => {
   assert.equal(formatAccountEvent(null), null);
   assert.equal(formatAccountEvent("x"), null);

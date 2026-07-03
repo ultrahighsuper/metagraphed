@@ -82,7 +82,13 @@ export const INGESTED_EVENT_KINDS = [
 function toIso(ms) {
   if (ms == null) return null;
   const n = Number(ms);
-  return Number.isFinite(n) ? new Date(n).toISOString() : null;
+  if (!Number.isFinite(n)) return null;
+  // An out-of-range epoch-ms (|n| > 8.64e15) is finite but new Date(n) is an
+  // Invalid Date whose .toISOString() THROWS a RangeError — one bad observed_at
+  // cell would break the whole events feed instead of nulling that one field.
+  // Guard it, mirroring the blocks toIso fix (#2762).
+  const d = new Date(n);
+  return Number.isFinite(d.getTime()) ? d.toISOString() : null;
 }
 
 // Coerce a block height or index cell to a non-negative integer, or null when
