@@ -446,6 +446,49 @@ describe("buildChainTurnover", () => {
     assert.equal(data.neuron_retention, 0.9999); // clamped; naïve Math.round gives 1
   });
 
+  test("rows with a null or out-of-range uid are skipped from the neuron sets", () => {
+    // normalizedUid drops a null cell and any negative / non-safe-integer uid, so
+    // an unusable slot never inflates the neuron counts or the retention union.
+    const rows = [
+      {
+        snapshot_date: "2026-05-01",
+        netuid: 1,
+        uid: 0,
+        hotkey: "V1",
+        validator_permit: 1,
+      },
+      {
+        snapshot_date: "2026-05-01",
+        netuid: 1,
+        uid: null, // null uid → skipped
+        hotkey: "X",
+        validator_permit: 0,
+      },
+      {
+        snapshot_date: "2026-05-01",
+        netuid: 1,
+        uid: -1, // negative uid → skipped
+        hotkey: "Y",
+        validator_permit: 0,
+      },
+      {
+        snapshot_date: "2026-06-01",
+        netuid: 1,
+        uid: 0,
+        hotkey: "V1",
+        validator_permit: 1,
+      },
+    ];
+    const data = buildChainTurnover(rows, {
+      window: "30d",
+      startDate: "2026-05-01",
+      endDate: "2026-06-01",
+    });
+    assert.equal(data.neurons_start, 1); // only uid 0; null and -1 dropped
+    assert.equal(data.neurons_end, 1);
+    assert.equal(data.neuron_retention, 1);
+  });
+
   test("rows without a hotkey or a valid netuid are skipped from the sets", () => {
     const rows = [
       {
