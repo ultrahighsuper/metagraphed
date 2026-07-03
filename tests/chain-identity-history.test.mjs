@@ -9,6 +9,40 @@ import {
 } from "../src/chain-identity-history.mjs";
 import { handleRequest } from "../workers/api.mjs";
 import { createLocalArtifactEnv } from "../scripts/lib.mjs";
+import { readIdentityHistoryCacheStamp } from "../workers/request-handlers/analytics.mjs";
+
+describe("readIdentityHistoryCacheStamp", () => {
+  const envWith = (results) => ({
+    METAGRAPH_HEALTH_DB: {
+      prepare: () => ({
+        bind: () => ({ all: () => Promise.resolve({ results }) }),
+      }),
+    },
+  });
+
+  test("returns the newest observed_at across all subnets as a string", async () => {
+    const stamp = await readIdentityHistoryCacheStamp(
+      envWith([{ observed_at: 1_700_000_000_000 }]),
+    );
+    assert.equal(stamp, "1700000000000");
+  });
+
+  test("returns null when the store is cold or the stamp is non-positive/non-integer", async () => {
+    assert.equal(
+      await readIdentityHistoryCacheStamp(envWith([{ observed_at: null }])),
+      null,
+    );
+    assert.equal(
+      await readIdentityHistoryCacheStamp(envWith([{ observed_at: 0 }])),
+      null,
+    );
+    assert.equal(await readIdentityHistoryCacheStamp(envWith([])), null);
+  });
+
+  test("returns null when D1 is unbound (fallback rows)", async () => {
+    assert.equal(await readIdentityHistoryCacheStamp({}), null);
+  });
+});
 
 // A network feed: identity changes from two subnets, newest first (the loader
 // reads block_number DESC, netuid ASC).
