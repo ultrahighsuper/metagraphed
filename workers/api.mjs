@@ -1478,7 +1478,7 @@ export async function handleRequest(request, env = {}, ctx = {}) {
             Number(yieldHistoryMatch[1]),
             resolved.url,
           ),
-        canonicalSubnetYieldHistoryCachePath(resolved.url),
+        canonicalSubnetYieldHistoryCachePath(resolved.url, request),
       );
     }
     const concentrationMatch = SUBNET_CONCENTRATION_PATH_PATTERN.exec(

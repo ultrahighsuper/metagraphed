@@ -332,6 +332,18 @@ const BLOCK_CSV_COLUMNS = [
   "spec_version",
   "observed_at",
 ];
+const SUBNET_YIELD_HISTORY_CSV_COLUMNS = [
+  "snapshot_date",
+  "neuron_count",
+  "validator_count",
+  "yield_count",
+  "subnet_yield",
+  "mean_yield",
+  "median_yield",
+  "p25_yield",
+  "p75_yield",
+  "p90_yield",
+];
 const ACCOUNT_EXTRINSICS_CSV_COLUMNS = [
   "extrinsic_id",
   "block_number",
@@ -959,8 +971,20 @@ export function canonicalSubnetPerformanceHistoryCachePath(url) {
   return canonicalWindowedCachePath(url, parseSubnetPerformanceHistoryWindow);
 }
 
-export function canonicalSubnetYieldHistoryCachePath(url) {
-  return canonicalWindowedCachePath(url, parseSubnetYieldHistoryWindow);
+export function canonicalSubnetYieldHistoryCachePath(url, request = null) {
+  const validationError = validateQueryParams(url, ["window", "format"]);
+  if (validationError) return `${url.pathname}${url.search}`;
+  const formatError = validateResponseFormat(url);
+  if (formatError) return `${url.pathname}${url.search}`;
+  const { label, error } = parseSubnetYieldHistoryWindow(
+    url.searchParams.get("window"),
+  );
+  if (error) return `${url.pathname}${url.search}`;
+  return csvCacheVariant(
+    url,
+    request,
+    `${url.pathname}?window=${encodeURIComponent(label)}`,
+  );
 }
 
 // Canonical edge-cache key for the subnet-turnover route (?window= via
@@ -1257,8 +1281,10 @@ export async function handleSubnetPerformanceHistory(
 // is the raw rows (not a GROUP BY) bounded by a row cap; a cold/absent store → 200
 // with points:[] (schema-stable, never 404).
 export async function handleSubnetYieldHistory(request, env, netuid, url) {
-  const validationError = validateQueryParams(url, ["window"]);
+  const validationError = validateQueryParams(url, ["window", "format"]);
   if (validationError) return analyticsQueryError(validationError);
+  const formatError = validateResponseFormat(url);
+  if (formatError) return analyticsQueryError(formatError);
   const { label, days, error } = parseSubnetYieldHistoryWindow(
     url.searchParams.get("window"),
   );
@@ -1275,6 +1301,18 @@ export async function handleSubnetYieldHistory(request, env, netuid, url) {
     window: label,
     capped: rows.length >= YIELD_HISTORY_ROW_CAP,
   });
+  if (csvRequested(url, request)) {
+    const points = [...data.points].sort((a, b) =>
+      String(a.snapshot_date).localeCompare(String(b.snapshot_date)),
+    );
+    return csvResponse(
+      points,
+      `subnet-${netuid}-yield-history`,
+      "short",
+      request,
+      SUBNET_YIELD_HISTORY_CSV_COLUMNS,
+    );
+  }
   return envelopeResponse(
     request,
     {
