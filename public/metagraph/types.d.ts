@@ -1745,7 +1745,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Fetch the per-day stake & emission concentration trend (Gini, Nakamoto coefficient, top-10% share) for one subnet over a 7d/30d/90d window (computed live from the neuron_daily D1 rollup). */
+        /** Fetch the per-day stake & emission concentration trend (Gini, Nakamoto coefficient, top-10% share) for one subnet over a 7d/30d/90d window (computed live from the neuron_daily D1 rollup). Pass ?format=csv to download the per-day series as CSV. */
         get: operations["subnetConcentrationHistory"];
         put?: never;
         post?: never;
@@ -21163,6 +21163,8 @@ export interface operations {
         parameters: {
             query?: {
                 window?: "7d" | "30d" | "90d";
+                /** @description Response format override. Use `csv` to download the route rows as text/csv; `json` keeps the default response envelope. */
+                format?: "json" | "csv";
             };
             header?: never;
             path: {
@@ -21172,7 +21174,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Canonical artifact wrapped in the Metagraphed API envelope. */
+            /** @description Canonical artifact wrapped in the Metagraphed API envelope, or route rows as text/csv when CSV is requested. */
             200: {
                 headers: {
                     "cache-control": components["headers"]["CacheControl"];
@@ -21223,6 +21225,11 @@ export interface operations {
                     "application/json": components["schemas"]["SuccessEnvelope"] & {
                         data?: components["schemas"]["SubnetConcentrationHistoryArtifact"];
                     };
+                    /**
+                     * @example snapshot_date,neuron_count,stake_gini,stake_nakamoto_coefficient,stake_top_10pct_share,emission_gini,emission_nakamoto_coefficient,emission_top_10pct_share
+                     *     2026-06-27,2,0.490099,1,0.990099,0.409091,1,0.909091
+                     */
+                    "text/csv": string;
                 };
             };
             /** @description ETag matched and the cached response is still valid. */
