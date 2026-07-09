@@ -12,6 +12,7 @@ import { EmptyState, Skeleton } from "@/components/metagraphed/states";
 import { PageHero } from "@/components/metagraphed/page-hero";
 import { ListShell } from "@/components/metagraphed/list-shell";
 import { StatTile } from "@/components/metagraphed/charts/stat-tile";
+import { Sparkline } from "@/components/metagraphed/charts/sparkline";
 import {
   PageSizeSelect,
   ResetFiltersButton,
@@ -20,7 +21,7 @@ import {
 import { QueryErrorBoundary } from "@/components/metagraphed/error-boundary";
 import { ShareButton } from "@/components/metagraphed/share-button";
 import { DownloadCsvButton } from "@/components/metagraphed/download-csv-button";
-import { blocksQuery, blocksSummaryQuery } from "@/lib/metagraphed/queries";
+import { blocksQuery, blocksSummaryQuery, chainActivityQuery } from "@/lib/metagraphed/queries";
 import { formatNumber, humaniseSeconds } from "@/lib/metagraphed/format";
 import { buildUrl } from "@/lib/metagraphed/client";
 import { nakamotoTone } from "@/lib/metagraphed/network-decentralization";
@@ -96,6 +97,11 @@ function BlocksPage() {
         }
       />
       <QueryErrorBoundary>
+        <Suspense fallback={<Skeleton className="h-24 w-full mb-3" />}>
+          <BlockThroughputCard />
+        </Suspense>
+      </QueryErrorBoundary>
+      <QueryErrorBoundary>
         <Suspense fallback={<Skeleton className="h-28 w-full mb-8" />}>
           <BlockProductionHeader />
         </Suspense>
@@ -106,10 +112,42 @@ function BlocksPage() {
         </Suspense>
       </QueryErrorBoundary>
       <ApiSourceFooter
-        paths={["/api/v1/blocks", "/api/v1/blocks/summary"]}
+        paths={["/api/v1/blocks", "/api/v1/blocks/summary", "/api/v1/chain/activity"]}
         artifacts={["/metagraph/blocks.json", "/metagraph/blocks/summary.json"]}
       />
     </AppShell>
+  );
+}
+
+// #3390: block-throughput sparkline — daily block_count over the default window
+// from /api/v1/chain/activity (the source explorer.tsx already uses), rendered as
+// a compact card directly above the production-stats header so the throughput
+// trend sits with the other block-production metrics (no separate hero KPI).
+function BlockThroughputCard() {
+  const chrono = [...useSuspenseQuery(chainActivityQuery()).data.data.days].reverse();
+  const blockCounts = chrono.map((d) => d.block_count);
+  if (blockCounts.length === 0) return null;
+  const totalBlocks = blockCounts.reduce((acc, n) => acc + n, 0);
+  return (
+    <div className="mb-3 flex items-center justify-between gap-4 rounded-lg border border-border bg-card p-4">
+      <div>
+        <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-muted">
+          Blocks / day
+        </div>
+        <div className="mt-1 font-display text-2xl font-semibold tabular-nums text-ink-strong">
+          {formatNumber(totalBlocks)}
+          <span className="ml-1.5 text-sm font-normal text-ink-muted">total</span>
+        </div>
+      </div>
+      <Sparkline
+        values={blockCounts}
+        points={chrono.map((d) => ({ t: d.day, v: d.block_count }))}
+        width={220}
+        height={44}
+        ariaLabel="Daily block throughput, oldest to newest"
+        formatValue={formatNumber}
+      />
+    </div>
   );
 }
 
