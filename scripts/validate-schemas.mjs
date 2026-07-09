@@ -80,6 +80,7 @@ const COMPUTED_ARTIFACTS = new Set([
   "account-subnet-position-history",
   "account-balance",
   "sudo-key",
+  "subnet-recycled",
   "blocks-feed",
   "blocks-summary",
   "block-detail",
