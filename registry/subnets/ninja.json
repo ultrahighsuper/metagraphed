@@ -230,6 +230,31 @@
       },
       "source_urls": ["https://github.com/unarbos/ninja/blob/main/README.md"],
       "url": "https://ninja66.ai/api/submissions"
+    },
+    {
+      "auth_required": false,
+      "authority": "community",
+      "id": "sn-66-ninja-agent-files-manifest",
+      "kind": "data-artifact",
+      "name": "Ninja tau agent files manifest",
+      "notes": "Public no-auth machine-readable JSON manifest listing the canonical set of source files that constitute a valid SN66 Ninja (tau) agent submission (agent.py plus the agent/ package modules: agent_loop.py, criteria.py, environment.py, guards.py, model.py, prompts.py, repo_diff.py, ...). Published in the official unarbos/ninja miner-harness repository at tau_agent_files.json and used by the harness to assemble/validate an agent's file set. Pinned to an immutable commit. Contains only relative file paths — no code, hotkeys, or secrets. Verified 200, SS58-clean.",
+      "probe": {
+        "enabled": true,
+        "method": "GET",
+        "expect": "json",
+        "timeout_ms": 10000
+      },
+      "provider": "unarbos",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "ultrahighsuper"
+      },
+      "source_urls": [
+        "https://github.com/unarbos/ninja/blob/a6ce013deadeba964f9874ffc5ce5b4857c068cf/tau_agent_files.json",
+        "https://github.com/unarbos/ninja/blob/main/README.md"
+      ],
+      "url": "https://raw.githubusercontent.com/unarbos/ninja/a6ce013deadeba964f9874ffc5ce5b4857c068cf/tau_agent_files.json"
     }
   ],
   "website_url": "https://ninja.arbos.life/"
