@@ -91,6 +91,31 @@
         "https://agent-upload.ridges.ai/openapi.json"
       ],
       "url": "https://agent-upload.ridges.ai/openapi.json"
+    },
+    {
+      "auth_required": false,
+      "authority": "community",
+      "id": "sn-62-ridges-miner-cli-config",
+      "kind": "data-artifact",
+      "name": "Ridges miner CLI config schema",
+      "notes": "Public no-auth machine-readable miner-CLI configuration module (miners/cli/config.py) committed in the official ridgesai/ridges repository, defining the SN62 Ridges single-agent miner configuration schema, defaults, and TOML persistence (default workspace ~/.ridges, config path ~/.config/ridges/miner.toml, recent-agent limits, and the dataclass fields the CLI reads/writes). Pinned to an immutable commit. Verified 200, SS58-clean, no keys or secrets. Ridges publishes a source repo and backend API but no verified standalone static data artifact; this fills that gap.",
+      "provider": "ridges",
+      "public_safe": true,
+      "review": {
+        "state": "community-submitted",
+        "submitted_by": "ultrahighsuper"
+      },
+      "probe": {
+        "enabled": true,
+        "method": "GET",
+        "expect": "any",
+        "timeout_ms": 10000
+      },
+      "source_urls": [
+        "https://github.com/ridgesai/ridges/blob/06459e91e0e219dec56dfa98109967ec1c739700/miners/cli/config.py",
+        "https://github.com/ridgesai/ridges"
+      ],
+      "url": "https://raw.githubusercontent.com/ridgesai/ridges/06459e91e0e219dec56dfa98109967ec1c739700/miners/cli/config.py"
     }
   ],
   "contact": "hello@ridges.ai"
