@@ -353,6 +353,43 @@ describe("list-query case-insensitive enum/string filters (#2073)", () => {
   });
 });
 
+describe("list-query free-text maxLength (#5544)", () => {
+  const atCap = "a".repeat(200);
+  const overCap = "a".repeat(201);
+
+  test("a provider filter at the 200-char cap passes; one char over 400s", () => {
+    const ok = applyQueryFilters(
+      { candidates: [] },
+      query(`/api/v1/candidates?provider=${atCap}`),
+      "candidates",
+    );
+    assert.equal(ok.error, undefined);
+    const bad = applyQueryFilters(
+      { candidates: [] },
+      query(`/api/v1/candidates?provider=${overCap}`),
+      "candidates",
+    );
+    assert.equal(bad.error?.parameter, "provider");
+    assert.match(bad.error.message, /is too long/);
+  });
+
+  test("a q search value at the 200-char cap passes; one char over 400s", () => {
+    const ok = applyQueryFilters(
+      { documents: [] },
+      query(`/api/v1/documents?q=${atCap}`),
+      "documents",
+    );
+    assert.equal(ok.error, undefined);
+    const bad = applyQueryFilters(
+      { documents: [] },
+      query(`/api/v1/documents?q=${overCap}`),
+      "documents",
+    );
+    assert.equal(bad.error?.parameter, "q");
+    assert.match(bad.error.message, /is too long/);
+  });
+});
+
 describe("list-query numeric range filters", () => {
   const data = {
     subnets: [

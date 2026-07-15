@@ -130,7 +130,14 @@ export const QUERY_ENUMS = {
 };
 
 const integerSchema = { type: "integer", minimum: 0 };
-const textSchema = { type: "string" };
+// Free-text filter/search values (provider, id, review_state, reason_codes, and
+// the `q` search param). Bounded (#5544): generous for free-typed search prose
+// yet well above the structured-token fields' 64-100 char caps, so no filter or
+// `q` can drive unbounded per-request scan work from an unbounded input.
+// validateListQuery (workers/list-query.mjs) enforces this on the filter params
+// generically and on `q` explicitly via this same exported cap.
+export const FREE_TEXT_MAX_LENGTH = 200;
+const textSchema = { type: "string", maxLength: FREE_TEXT_MAX_LENGTH };
 const fieldListSchema = {
   type: "string",
   pattern: "^[A-Za-z_][A-Za-z0-9_]*(,[A-Za-z_][A-Za-z0-9_]*)*$",
