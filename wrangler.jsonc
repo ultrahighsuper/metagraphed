@@ -530,5 +530,13 @@
         "period": 60,
       },
     },
+    {
+      "name": "CHAIN_FIREHOSE_INGEST_RATE_LIMITER",
+      "namespace_id": "1008",
+      "simple": {
+        "limit": 120,
+        "period": 60,
+      },
+    },
   ],
 }

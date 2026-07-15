@@ -895,6 +895,37 @@ async function internalSyncRateLimited(request, env) {
   );
 }
 
+// #5550: the chain-firehose ingest write path authenticates with a single
+// static shared secret and then fans each accepted payload out to every live
+// SSE/WS/GraphQL-subscription subscriber -- so a leaked CHAIN_FIREHOSE_SYNC_SECRET
+// could flood every connected client with unbounded forged events, a distinct
+// amplification angle from the one-record-per-request internal-sync routes.
+// Generous cap: the #4981 box relay POSTs at most per-block (~5/min at ~12s
+// blocks); 120/60s leaves >20x headroom for multi-event NOTIFY bursts while
+// still firmly bounding abuse. Keyed per client IP; optional-chained so it's a
+// no-op when the binding is absent (local dev/CI).
+const CHAIN_FIREHOSE_INGEST_RATE_LIMIT = { limit: 120, windowSeconds: 60 };
+
+async function chainFirehoseIngestRateLimited(request, env) {
+  if (!env.CHAIN_FIREHOSE_INGEST_RATE_LIMITER?.limit) return null;
+  const { success } = await env.CHAIN_FIREHOSE_INGEST_RATE_LIMITER.limit({
+    key: `chain-firehose-ingest:${resolveClientIp(request)}`,
+  });
+  if (success) return null;
+  return errorResponse(
+    "chain_firehose_ingest_rate_limited",
+    "Too many chain-firehose ingest requests from this client; slow down.",
+    429,
+    {},
+    {
+      "retry-after": String(CHAIN_FIREHOSE_INGEST_RATE_LIMIT.windowSeconds),
+      "x-ratelimit-limit": String(CHAIN_FIREHOSE_INGEST_RATE_LIMIT.limit),
+      "x-ratelimit-policy": `${CHAIN_FIREHOSE_INGEST_RATE_LIMIT.limit};w=${CHAIN_FIREHOSE_INGEST_RATE_LIMIT.windowSeconds}`,
+      "x-ratelimit-remaining": "0",
+    },
+  );
+}
+
 // Generic forwarder to the DATA_API service binding for the internal
 // write/rollup routes that live inside workers/data-api.mjs itself rather
 // than a dedicated Worker (#4771's neurons-sync pattern) -- splitting read
@@ -1072,6 +1103,11 @@ async function handleChainFirehoseIngest(request, env) {
       401,
     );
   }
+  // Rate-limit only authenticated callers (unauth/wrong-method are rejected
+  // above without consuming limiter budget) so a leaked secret can't flood
+  // every live firehose subscriber (#5550).
+  const rateLimited = await chainFirehoseIngestRateLimited(request, env);
+  if (rateLimited) return rateLimited;
   if (!env.CHAIN_FIREHOSE_HUB) {
     return errorResponse(
       "chain_firehose_unavailable",

@@ -169,6 +169,96 @@ test("ingest: on valid auth, forwards the body to the hub's /ingest path on the 
   );
 });
 
+// #5550: the ingest write path fans each payload out to every live firehose
+// subscriber, so a leaked secret needs a volume cap, not just auth.
+test("ingest: a within-limit request passes the rate limiter and reaches the hub (#5550)", async () => {
+  let forwarded = false;
+  const env = {
+    CHAIN_FIREHOSE_SYNC_SECRET: "shh",
+    CHAIN_FIREHOSE_INGEST_RATE_LIMITER: {
+      limit: async () => ({ success: true }),
+    },
+    CHAIN_FIREHOSE_HUB: stubHub(() => {
+      forwarded = true;
+      return new Response(JSON.stringify({ ok: true }), { status: 202 });
+    }),
+  };
+  const res = await handleRequest(
+    ingestRequest("{}", { token: "shh" }),
+    env,
+    {},
+  );
+  assert.equal(res.status, 202);
+  assert.ok(forwarded, "a within-limit request must reach the hub");
+});
+
+test("ingest: an over-limit request 429s with the rate-limit header family and never reaches the hub (#5550)", async () => {
+  let forwarded = false;
+  const env = {
+    CHAIN_FIREHOSE_SYNC_SECRET: "shh",
+    CHAIN_FIREHOSE_INGEST_RATE_LIMITER: {
+      limit: async () => ({ success: false }),
+    },
+    CHAIN_FIREHOSE_HUB: stubHub(() => {
+      forwarded = true;
+      return new Response("{}", { status: 202 });
+    }),
+  };
+  const res = await handleRequest(
+    ingestRequest("{}", { token: "shh" }),
+    env,
+    {},
+  );
+  assert.equal(res.status, 429);
+  assert.equal(res.headers.get("retry-after"), "60");
+  assert.equal(res.headers.get("x-ratelimit-limit"), "120");
+  assert.equal(res.headers.get("x-ratelimit-remaining"), "0");
+  assert.ok(res.headers.get("x-ratelimit-policy"));
+  assert.equal(
+    forwarded,
+    false,
+    "an over-limit request must not reach the hub",
+  );
+});
+
+test("ingest: an unbound rate limiter is a no-op (local dev/CI) (#5550)", async () => {
+  let forwarded = false;
+  const env = {
+    CHAIN_FIREHOSE_SYNC_SECRET: "shh",
+    // No CHAIN_FIREHOSE_INGEST_RATE_LIMITER binding at all.
+    CHAIN_FIREHOSE_HUB: stubHub(() => {
+      forwarded = true;
+      return new Response("{}", { status: 202 });
+    }),
+  };
+  const res = await handleRequest(
+    ingestRequest("{}", { token: "shh" }),
+    env,
+    {},
+  );
+  assert.equal(res.status, 202);
+  assert.ok(forwarded);
+});
+
+test("ingest: a wrong token 401s before the limiter is consulted (#5550)", async () => {
+  const env = {
+    CHAIN_FIREHOSE_SYNC_SECRET: "shh",
+    CHAIN_FIREHOSE_INGEST_RATE_LIMITER: {
+      limit: async () => {
+        throw new Error(
+          "limiter must not be consulted for an unauthenticated caller",
+        );
+      },
+    },
+  };
+  const res = await handleRequest(
+    ingestRequest("{}", { token: "nope" }),
+    env,
+    {},
+  );
+  assert.equal(res.status, 401);
+});
+
 test("ingest: relays a non-2xx upstream status (e.g. 400 from an invalid payload) unchanged", async () => {
   const env = {
     CHAIN_FIREHOSE_SYNC_SECRET: "shh",
