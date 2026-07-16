@@ -1077,6 +1077,18 @@
       "notes": "Root->128 accuracy audit pass (#5903): first maintainer review for SN77. Added website + source-repo surfaces, fixed 2 missing probe blocks. Diffed the subnet's own live-served API reference (validator/api-server-docs.json, 14 endpoints) for undiscovered public GET endpoints -- added 5 new no-param surfaces (allVotes, allHolders, allAddresses, allMiners, positions)."
     },
     {
+      "netuid": 78,
+      "slug": "sn-78",
+      "decision": "maintainer-reviewed",
+      "reviewed_at": "2026-07-15T00:00:00.000Z",
+      "confidence": "high",
+      "source_urls": [
+        "https://www.vocence.ai/",
+        "https://github.com/vocence-78/vocence"
+      ],
+      "notes": "Root->128 accuracy audit pass (#5903): first maintainer review for SN78. Added website + source-repo surfaces, fixed 3 missing probe blocks. Diffed the OpenAPI schema (46 paths, schema declares no security) for undiscovered public GET endpoints -- spot-checking confirms the entire developer API is auth-gated except the already-tracked /health route."
+    },
+    {
       "netuid": 79,
       "slug": "sn-79",
       "decision": "maintainer-reviewed",
